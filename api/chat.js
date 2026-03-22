@@ -3,12 +3,14 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  let messages;
-  try {
-    messages = req.body?.messages;
-  } catch(e) {
-    return res.status(400).json({ error: "Bad request body" });
+  let body = req.body;
+  if (typeof body === "string") {
+    try { body = JSON.parse(body); } catch(e) {
+      return res.status(400).json({ error: "Invalid JSON" });
+    }
   }
+
+  const messages = body?.messages;
 
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "Invalid messages" });
