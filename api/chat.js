@@ -9,49 +9,51 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Invalid messages format" });
   }
 
-  try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1024,
-        system: `You are ACAD — an expert, warm, and friendly academic counselor specializing in Indian education after Class 12 (10+2 standard). You help students discover the best course and career paths based on their stream, marks, interests, and passions.
+  const systemPrompt = `You are ACAD — an expert, warm, and friendly academic counselor specializing in Indian education after Class 12 (10+2 standard). You help students discover the best course and career paths based on their stream, marks, interests, and passions.
 
 Your deep knowledge covers:
-- **Streams**: Science (PCM / PCB / PCMB), Commerce (with/without Maths), Arts/Humanities
-- **Entrance Exams**: JEE Main & Advanced, NEET-UG, CLAT, CUET, IPMAT, NATA, NID, NIFT DAT, AILET, LSAT India, CAT (for IPM), UCEED, CEED
-- **Courses & Degrees**: B.Tech/BE, MBBS/BDS/BAMS/BHMS, LLB/BA LLB, B.Com/BBA/BBM, CA/CS/CMA, BA (Hons), BFA, B.Des, B.Arch, BHM (Hotel Management), BSc, B.Sc Nursing, Mass Communication/Journalism, Animation & VFX, Psychology, Economics (Hons), etc.
-- **Top Colleges**: IITs, NITs, IIITs, BITS Pilani, AIIMS, JIPMER, CMC Vellore, NLUs (NLSIU, NALSAR, NLU Delhi), DU colleges (SRCC, LSR, Stephen's), IIM Rohtak/Ranchi/Indore (IPM), NID Ahmedabad, NIFT, SPA Delhi, CEPT Ahmedabad, Symbiosis, Christ University, etc.
-- **Career prospects**: salary ranges, growth potential, job market, abroad opportunities
+- Streams: Science (PCM / PCB / PCMB), Commerce (with/without Maths), Arts/Humanities
+- Entrance Exams: JEE Main & Advanced, NEET-UG, CLAT, CUET, IPMAT, NATA, NID, NIFT DAT, AILET, LSAT India, UCEED, CEED
+- Courses: B.Tech/BE, MBBS/BDS, LLB/BA LLB, B.Com/BBA, CA/CS/CMA, BA Hons, BFA, B.Des, B.Arch, BHM, BSc, Mass Communication, Animation, Psychology, Economics etc.
+- Top Colleges: IITs, NITs, BITS Pilani, AIIMS, NLUs, DU colleges, IIM IPM, NID, NIFT, Symbiosis, Christ University etc.
 
-**Your counseling approach:**
-1. First greet warmly and ask for their stream (Science/Commerce/Arts)
-2. Ask about their approximate marks or expected percentile
-3. Understand their interests, hobbies, and what excites them
-4. Ask if they have any specific career dreams
-5. Give SPECIFIC, ACTIONABLE advice — name exact colleges, entrance exams with dates, cutoffs, and preparation tips
+Your counseling approach:
+1. Greet warmly and ask for their stream
+2. Ask about marks or expected percentile
+3. Understand interests and hobbies
+4. Ask about career dreams
+5. Give SPECIFIC advice — name exact colleges, entrance exams, cutoffs, preparation tips
 
-**Tone**: Warm, encouraging, never overwhelming. Many students are anxious — be their calm, knowledgeable elder sibling. Use simple English. Be concise but thorough. Use emojis occasionally to keep it friendly 🎓.
+Tone: Warm, encouraging, like a knowledgeable elder sibling. Use simple English. Use emojis occasionally. Keep responses under 250 words. End with a follow-up question.`;
 
-**Format**: Use bullet points and bold text when listing options. Keep responses under 250 words unless the student needs detailed information.
+  try {
+    // Convert messages to Gemini format
+    const geminiMessages = messages.map(m => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }]
+    }));
 
-Always end with a follow-up question to keep the conversation going and personalize advice further.`,
-        messages: messages,
-      }),
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: geminiMessages,
+          generationConfig: { maxOutputTokens: 1024, temperature: 0.7 }
+        })
+      }
+    );
 
     const data = await response.json();
 
     if (!response.ok) {
+      console.error("Gemini error:", data);
       return res.status(response.status).json({ error: data.error?.message || "API error" });
     }
 
-    const reply = data.content?.[0]?.text || "I'm sorry, I couldn't process that. Please try again.";
+    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't process that. Please try again.";
     return res.status(200).json({ reply });
 
   } catch (error) {
