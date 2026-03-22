@@ -10,13 +10,25 @@ module.exports = async function handler(req, res) {
 
   const systemPrompt = `You are ACAD — a warm, friendly academic counselor for Indian students after Class 12. Help them find the best course based on their stream (Science/Commerce/Arts), marks, interests and passions. Cover: JEE, NEET, CLAT, CUET, NIFT, NID, CA, B.Tech, MBBS, LLB, BBA, B.Des, B.Arch, Mass Comm, Animation, Psychology and more. Recommend specific colleges like IITs, NITs, AIIMS, NLUs, BITS, NID, NIFT, DU colleges. Be like a knowledgeable elder sibling — warm, simple English, use emojis occasionally. Keep replies under 250 words. Always end with a follow-up question.`;
 
-try {
-    if (!process.env.GROQ_API_KEY) {
-      return res.status(200).json({ reply: "ERROR: GROQ_API_KEY is undefined" });
-    }
-    return res.status(200).json({ reply: `Key length: ${process.env.GROQ_API_KEY.length} characters` }); 
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...messages
+        ],
+        max_tokens: 1024,
+        temperature: 0.7
+      })
+    });
 
-     const data = await response.json();
+    const data = await response.json();
 
     if (!response.ok) {
       return res.status(200).json({ 
